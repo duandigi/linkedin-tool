@@ -17,6 +17,7 @@ import {
   Activity,
   Bell,
   BriefcaseBusiness,
+  Building2,
   CalendarDays,
   ChevronDown,
   CircleHelp,
@@ -56,6 +57,12 @@ const metricBase = [
   { label: 'Tỷ lệ chuyển đổi', value: 4.45, suffix: '%', change: '+0,9%', icon: TrendingUp, color: 'blue', spark: [23, 20, 29, 25, 36, 31, 48, 41] },
 ]
 
+type LinkedInPage = {
+  id: string
+  name: string
+  vanityName?: string
+}
+
 function App() {
   const [period, setPeriod] = useState<Period>('30')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -64,6 +71,8 @@ function App() {
   const [campaign, setCampaign] = useState('executive_search')
   const [contentId, setContentId] = useState('post_hr_director_20260709')
   const [linkedinConnected, setLinkedinConnected] = useState(false)
+  const [pages, setPages] = useState<LinkedInPage[]>([])
+  const [selectedPageId, setSelectedPageId] = useState('')
   const [liveAnalytics, setLiveAnalytics] = useState<{ impressions: number; clicks: number; engagement: number } | null>(null)
   const trend = useMemo(() => getTrend(period), [period])
   const multiplier = periodMultiplier[period]
@@ -79,13 +88,28 @@ function App() {
       .then((status) => {
         setLinkedinConnected(Boolean(status.connected))
         if (status.connected) {
-          return fetch('/api/linkedin/analytics')
-            .then((response) => response.ok ? response.json() : null)
-            .then((analytics) => analytics && setLiveAnalytics(analytics))
+          return fetch('/api/linkedin/organizations')
+            .then((response) => response.ok ? response.json() : { organizations: [] })
+            .then((data) => {
+              const organizations = data.organizations as LinkedInPage[]
+              setPages(organizations)
+              setSelectedPageId(organizations[0]?.id || status.organizationId || '')
+            })
         }
       })
       .catch(() => setLinkedinConnected(false))
   }, [])
+
+  useEffect(() => {
+    if (!linkedinConnected || !selectedPageId) return
+    setLiveAnalytics(null)
+    fetch(`/api/linkedin/analytics?organizationId=${encodeURIComponent(selectedPageId)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((analytics) => analytics && setLiveAnalytics(analytics))
+      .catch(() => setLiveAnalytics(null))
+  }, [linkedinConnected, selectedPageId])
+
+  const selectedPage = pages.find((page) => page.id === selectedPageId)
 
   const selectNav = (label: string) => {
     setActiveNav(label)
@@ -96,7 +120,14 @@ function App() {
   return (
     <div className="app-shell">
       <aside className={sidebarOpen ? 'sidebar open' : 'sidebar'}>
-        <div className="brand"><div className="brand-mark">CNK</div><div><strong>Marketing Hub</strong><span>CNK Consulting</span></div></div>
+        <div className="brand"><div className="brand-mark">LI</div><div><strong>Page Analytics</strong><span>Multi-Page workspace</span></div></div>
+        <label className="page-switcher">
+          <span>PAGE ĐANG XEM</span>
+          <div><Building2 size={15} /><select value={selectedPageId} onChange={(event) => setSelectedPageId(event.target.value)} disabled={!linkedinConnected || !pages.length}>
+            {!pages.length && <option value="">{linkedinConnected ? 'Không tìm thấy Page' : 'Chưa kết nối LinkedIn'}</option>}
+            {pages.map((page) => <option value={page.id} key={page.id}>{page.name}</option>)}
+          </select><ChevronDown size={14} /></div>
+        </label>
         <nav aria-label="Điều hướng chính">
           <span className="nav-label">Không gian làm việc</span>
           {navItems.map(({ label, icon: Icon }) => (
@@ -124,7 +155,7 @@ function App() {
 
         <div className="content">
           <section className="page-heading">
-            <div><h1>Marketing Dashboard</h1><p>Toàn cảnh hiệu suất LinkedIn và chuyển đổi của CNK Consulting.</p></div>
+            <div><h1>Marketing Dashboard</h1><p>Hiệu suất của {selectedPage?.name || 'tất cả LinkedIn Page trong workspace'}.</p></div>
             <label className="period-select"><CalendarDays size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value as Period)}><option value="7">7 ngày qua</option><option value="30">30 ngày qua</option><option value="90">90 ngày qua</option></select></label>
           </section>
 
@@ -196,7 +227,7 @@ function App() {
             </div>
           </section>
 
-          <section className={linkedinConnected ? 'connection-strip connected' : 'connection-strip'}><div className="connection-icon"><BriefcaseBusiness size={21} /></div><div><strong>{linkedinConnected ? 'LinkedIn Page đã kết nối' : 'Thông tin API đã sẵn sàng'}</strong><span>{linkedinConnected ? 'Dashboard đang ưu tiên số liệu thật lấy từ LinkedIn API.' : 'Bấm kết nối và đăng nhập LinkedIn để cấp quyền đọc dữ liệu CNK Page.'}</span></div><button className="secondary-button" onClick={() => { window.location.href = '/api/linkedin/auth' }}>{linkedinConnected ? 'Kết nối lại' : 'Kết nối LinkedIn'}</button></section>
+          <section className={linkedinConnected ? 'connection-strip connected' : 'connection-strip'}><div className="connection-icon"><BriefcaseBusiness size={21} /></div><div><strong>{linkedinConnected ? `${pages.length} LinkedIn Page đã được đồng bộ` : 'Kết nối tài khoản quản trị Page'}</strong><span>{linkedinConnected ? 'Chọn Page ở thanh bên để xem riêng từng dashboard.' : 'Cấp quyền một lần để hệ thống đọc danh sách và analytics của mọi Page anh quản trị.'}</span></div><button className="secondary-button" onClick={() => { window.location.href = '/api/linkedin/auth' }}>{linkedinConnected ? 'Đồng bộ quyền' : 'Kết nối LinkedIn'}</button></section>
         </div>
       </main>
 

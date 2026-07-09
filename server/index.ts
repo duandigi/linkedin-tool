@@ -99,7 +99,7 @@ app.get('/api/linkedin/auth', (_request, response) => {
       client_id: credentials.clientId,
       redirect_uri: credentials.redirectUri,
       state,
-      scope: 'r_organization_social',
+      scope: 'r_organization_social rw_organization_admin',
     })
     response.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`)
   } catch (error) {
@@ -139,9 +139,45 @@ app.get('/auth/linkedin/callback', async (request, response) => {
   }
 })
 
-app.get('/api/linkedin/analytics', async (_request, response) => {
+app.get('/api/linkedin/organizations', async (_request, response) => {
   try {
-    const { organizationId } = getCredentials()
+    const aclData = await linkedInFetch('/rest/organizationAcls?q=roleAssignee&state=APPROVED&count=100')
+    const ids = [...new Set((aclData?.elements || [])
+      .map((item: { organization?: string; organizationalTarget?: string }) => item.organization || item.organizationalTarget || '')
+      .map((urn: string) => urn.match(/organization:(\d+)/)?.[1])
+      .filter(Boolean))] as string[]
+
+    if (!ids.length) {
+      response.json({ organizations: [] })
+      return
+    }
+
+    const lookup = await linkedInFetch(`/rest/organizationsLookup?ids=List(${ids.join(',')})`)
+    const results = lookup?.results || {}
+    const organizations = ids.map((id) => {
+      const item = results[id] || results[`urn:li:organization:${id}`] || {}
+      return {
+        id,
+        name: item.localizedName || item.name?.localized?.en_US || `LinkedIn Page ${id}`,
+        vanityName: item.vanityName || '',
+      }
+    })
+    response.json({ organizations })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Khong the tai danh sach Page'
+    response.status(message === 'LINKEDIN_AUTH_REQUIRED' ? 401 : 502).json({ message })
+  }
+})
+
+app.get('/api/linkedin/analytics', async (request, response) => {
+  try {
+    const configured = getCredentials()
+    const requestedId = typeof request.query.organizationId === 'string' ? request.query.organizationId : ''
+    const organizationId = requestedId || configured.organizationId
+    if (!/^\d+$/.test(organizationId)) {
+      response.status(400).json({ message: 'Organization ID khong hop le' })
+      return
+    }
     const organization = encodeURIComponent(`urn:li:organization:${organizationId}`)
     const data = await linkedInFetch(`/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${organization}`)
     const statistics = data?.elements?.[0]?.totalShareStatistics || {}

@@ -1,6 +1,6 @@
 # LinkedIn Marketing Tool
 
-MVP dashboard theo dõi hiệu suất nội dung LinkedIn, lead, CV và chiến dịch UTM cho CNK Consulting.
+Dashboard theo dõi hiệu suất nội dung, lead, CV và chiến dịch UTM cho nhiều LinkedIn Page trong một workspace.
 
 ## Chạy dự án
 
@@ -12,6 +12,8 @@ npm run dev
 ## Tính năng MVP
 
 - Dashboard KPI LinkedIn và chuyển đổi
+- Tự tải các Page mà tài khoản OAuth có quyền quản trị
+- Chuyển dashboard theo từng LinkedIn Page
 - Bảng nội dung nổi bật
 - Phễu click → lead → qualified → meeting
 - Trình tạo liên kết UTM
@@ -22,5 +24,5 @@ npm run dev
 
 1. Kết nối form website và lưu lead vào database.
 2. Tích hợp GA4 để ghi nhận UTM.
-3. Xin quyền LinkedIn Community Management API.
+3. Xin quyền LinkedIn Community Management API: `r_organization_social` và `rw_organization_admin`.
 4. Thêm đăng nhập, phân quyền và báo cáo tuần tự động.

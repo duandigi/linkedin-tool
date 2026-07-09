@@ -10,6 +10,7 @@ button { cursor: pointer; }
 .brand { display:flex; align-items:center; gap:10px; padding:0 8px 27px; }
 .brand-mark { width:37px; height:37px; display:grid; place-items:center; border:1px solid #8ea49a; color:#dfe9e4; font-size:12px; font-weight:700; }
 .brand strong,.brand span { display:block; }.brand strong{font-size:13px}.brand span{font-size:10px;color:#9eafa7;margin-top:2px}
+.page-switcher{display:block;margin:0 4px 18px}.page-switcher>span{display:block;color:#73877d;font-size:8px;font-weight:700;margin:0 7px 7px}.page-switcher>div{height:40px;display:grid;grid-template-columns:16px minmax(0,1fr) 14px;align-items:center;gap:7px;padding:0 9px;background:#21342b;border:1px solid #344b40;border-radius:5px;color:#b7c7bf}.page-switcher select{width:100%;min-width:0;border:0;outline:0;appearance:none;background:transparent;color:#eef4f1;font-size:10px;text-overflow:ellipsis}.page-switcher select:disabled{color:#82938a}
 nav{display:grid;gap:4px}.nav-label{color:#73877d;font-size:9px;font-weight:700;text-transform:uppercase;padding:4px 11px 8px}
 .nav-item{border:0;background:transparent;color:#aebcb5;min-height:43px;padding:0 11px;border-radius:5px;display:flex;gap:11px;align-items:center;width:100%;font-size:12px;text-align:left}
 .nav-item:hover,.nav-item.active{color:#fff;background:#263a31}.nav-item.active{box-shadow:inset 3px 0 #77b697}.sidebar-bottom{margin-top:auto}
