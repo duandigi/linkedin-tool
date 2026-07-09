@@ -1,0 +1,4 @@
+html { background: #f4f6f3; }
+body { margin: 0; min-width: 320px; min-height: 100dvh; font-family: Manrope, sans-serif; }
+button, input, select { letter-spacing: 0; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(23,107,74,.28); outline-offset: 2px; }
