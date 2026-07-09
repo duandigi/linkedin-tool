@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -71,6 +71,8 @@ function App() {
   const [campaign, setCampaign] = useState('executive_search')
   const [contentId, setContentId] = useState('post_hr_director_20260709')
   const [linkedinConnected, setLinkedinConnected] = useState(false)
+  const [linkedinConnecting, setLinkedinConnecting] = useState(false)
+  const [connectionMessage, setConnectionMessage] = useState('')
   const [pages, setPages] = useState<LinkedInPage[]>([])
   const [selectedPageId, setSelectedPageId] = useState('')
   const [liveAnalytics, setLiveAnalytics] = useState<{ impressions: number; clicks: number; engagement: number } | null>(null)
@@ -82,8 +84,8 @@ function App() {
     [campaign, contentId],
   )
 
-  useEffect(() => {
-    fetch('/api/linkedin/status')
+  const loadLinkedInAccount = useCallback(() => {
+    return fetch('/api/linkedin/status')
       .then((response) => response.json())
       .then((status) => {
         setLinkedinConnected(Boolean(status.connected))
@@ -93,12 +95,61 @@ function App() {
             .then((data) => {
               const organizations = data.organizations as LinkedInPage[]
               setPages(organizations)
-              setSelectedPageId(organizations[0]?.id || status.organizationId || '')
+              setSelectedPageId((current) => current && organizations.some((page) => page.id === current) ? current : organizations[0]?.id || status.organizationId || '')
+              setConnectionMessage(organizations.length ? `Đã đồng bộ ${organizations.length} Page` : 'Đã kết nối nhưng chưa tìm thấy Page có quyền quản trị')
             })
         }
+        setPages([])
+        setSelectedPageId('')
       })
-      .catch(() => setLinkedinConnected(false))
+      .catch(() => {
+        setLinkedinConnected(false)
+        setConnectionMessage('Không thể kết nối máy chủ LinkedIn')
+      })
   }, [])
+
+  useEffect(() => {
+    loadLinkedInAccount()
+  }, [loadLinkedInAccount])
+
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'linkedin-oauth') return
+      setLinkedinConnecting(false)
+      if (event.data.status === 'connected') {
+        setConnectionMessage('Đang tải danh sách Page...')
+        loadLinkedInAccount()
+      } else {
+        setConnectionMessage('LinkedIn chưa cấp quyền. Vui lòng thử lại.')
+      }
+    }
+    window.addEventListener('message', handleOAuthMessage)
+    return () => window.removeEventListener('message', handleOAuthMessage)
+  }, [loadLinkedInAccount])
+
+  const connectLinkedIn = () => {
+    setLinkedinConnecting(true)
+    setConnectionMessage('Đang chờ xác nhận từ LinkedIn...')
+    const width = 620
+    const height = 760
+    const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2)
+    const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2)
+    const popup = window.open('/api/linkedin/auth', 'linkedin-oauth', `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
+    if (!popup) {
+      setLinkedinConnecting(false)
+      setConnectionMessage('Trình duyệt đang chặn cửa sổ kết nối. Hãy cho phép pop-up.')
+      return
+    }
+    popup.focus()
+    const watcher = window.setInterval(() => {
+      if (!popup.closed) return
+      window.clearInterval(watcher)
+      window.setTimeout(() => {
+        setLinkedinConnecting(false)
+        loadLinkedInAccount()
+      }, 500)
+    }, 500)
+  }
 
   useEffect(() => {
     if (!linkedinConnected || !selectedPageId) return
@@ -227,7 +278,7 @@ function App() {
             </div>
           </section>
 
-          <section className={linkedinConnected ? 'connection-strip connected' : 'connection-strip'}><div className="connection-icon"><BriefcaseBusiness size={21} /></div><div><strong>{linkedinConnected ? `${pages.length} LinkedIn Page đã được đồng bộ` : 'Kết nối tài khoản quản trị Page'}</strong><span>{linkedinConnected ? 'Chọn Page ở thanh bên để xem riêng từng dashboard.' : 'Cấp quyền một lần để hệ thống đọc danh sách và analytics của mọi Page anh quản trị.'}</span></div><button className="secondary-button" onClick={() => { window.location.href = '/api/linkedin/auth' }}>{linkedinConnected ? 'Đồng bộ quyền' : 'Kết nối LinkedIn'}</button></section>
+          <section className={linkedinConnected ? 'connection-strip connected' : 'connection-strip'}><div className="connection-icon"><BriefcaseBusiness size={21} /></div><div><strong>{linkedinConnected ? `${pages.length} LinkedIn Page đã được đồng bộ` : 'Kết nối tài khoản quản trị Page'}</strong><span>{connectionMessage || (linkedinConnected ? 'Chọn Page ở thanh bên để xem riêng từng dashboard.' : 'Bấm một lần, xác nhận trên LinkedIn, dashboard sẽ tự đồng bộ.')}</span></div><button className="secondary-button" disabled={linkedinConnecting} onClick={connectLinkedIn}>{linkedinConnecting ? 'Đang chờ...' : linkedinConnected ? 'Đồng bộ lại' : 'Kết nối LinkedIn'}</button></section>
         </div>
       </main>
 

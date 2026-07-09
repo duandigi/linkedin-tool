@@ -4,6 +4,7 @@ import path from 'node:path'
 import express from 'express'
 
 const app = express()
+app.disable('x-powered-by')
 const root = process.cwd()
 const credentialsPath = path.join(root, 'linkedin-credentials.txt')
 const tokenPath = path.join(root, '.linkedin-token.json')
@@ -113,7 +114,7 @@ app.get('/auth/linkedin/callback', async (request, response) => {
   const stateExpiry = pendingStates.get(state)
   pendingStates.delete(state)
   if (!code || !stateExpiry || stateExpiry < Date.now()) {
-    response.redirect(`${webUrl}/?linkedin=error`)
+    sendOAuthResult(response, 'error')
     return
   }
 
@@ -133,11 +134,33 @@ app.get('/auth/linkedin/callback', async (request, response) => {
     if (!tokenResponse.ok) throw new Error(`Token exchange failed: ${tokenResponse.status}`)
     const data = await tokenResponse.json() as { access_token: string; expires_in: number }
     saveToken({ accessToken: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 })
-    response.redirect(`${webUrl}/?linkedin=connected`)
+    sendOAuthResult(response, 'connected')
   } catch {
-    response.redirect(`${webUrl}/?linkedin=error`)
+    sendOAuthResult(response, 'error')
   }
 })
+
+function sendOAuthResult(response: express.Response, status: 'connected' | 'error') {
+  const destination = `${webUrl}/?linkedin=${status}`
+  response
+    .status(status === 'connected' ? 200 : 400)
+    .type('html')
+    .send(`<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>LinkedIn OAuth</title></head>
+<body>
+<p>${status === 'connected' ? 'Đã kết nối LinkedIn. Cửa sổ này sẽ tự đóng.' : 'Không thể kết nối LinkedIn. Vui lòng thử lại.'}</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ type: 'linkedin-oauth', status: '${status}' }, '${webUrl}');
+    window.close();
+  } else {
+    window.location.replace('${destination}');
+  }
+</script>
+</body>
+</html>`)
+}
 
 app.get('/api/linkedin/organizations', async (_request, response) => {
   try {
